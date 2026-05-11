@@ -42,10 +42,10 @@ def health():
 @app.post("/chat")
 def chat(request: ChatRequest):
 
-    latest_message = request.messages[-1].content.lower()
+    latest_message = request.messages[-1].content.lower().strip()
 
     # ==================================================
-    # BUILD FULL CONVERSATION CONTEXT
+    # BUILD CONVERSATION CONTEXT
     # ==================================================
 
     conversation_context = ""
@@ -65,7 +65,9 @@ def chat(request: ChatRequest):
         "salary",
         "labor law",
         "politics",
-        "ignore previous instructions"
+        "ignore previous instructions",
+        "religion",
+        "medical advice"
     ]
 
     for keyword in off_topic_keywords:
@@ -73,49 +75,69 @@ def chat(request: ChatRequest):
         if keyword in latest_message:
 
             return {
-                "reply": "I can only assist with SHL assessment recommendations and comparisons.",
+                "reply": (
+                    "I can only assist with SHL assessment "
+                    "recommendations and comparisons."
+                ),
                 "recommendations": [],
                 "end_of_conversation": False
             }
 
     # ==================================================
-    # COMPARISON
+    # ASSESSMENT COMPARISON
     # ==================================================
 
     if "difference between" in latest_message:
 
         try:
 
-            text = latest_message.replace("difference between", "")
+            text = latest_message.replace(
+                "difference between",
+                ""
+            )
 
             parts = text.split("and")
 
-            name1 = parts[0].strip()
-            name2 = parts[1].strip()
+            if len(parts) >= 2:
 
-            assessment1 = get_assessment_by_name(name1)
-            assessment2 = get_assessment_by_name(name2)
+                name1 = parts[0].strip()
+                name2 = parts[1].strip()
 
-            if assessment1 and assessment2:
+                assessment1 = get_assessment_by_name(name1)
+                assessment2 = get_assessment_by_name(name2)
 
-                comparison = f"""
+                if assessment1 and assessment2:
+
+                    comparison = f"""
 {name1.upper()}:
-{assessment1.get('description', '')}
+{assessment1.get('description', 'No description available.')}
 
 {name2.upper()}:
-{assessment2.get('description', '')}
+{assessment2.get('description', 'No description available.')}
 """
 
-                return {
-                    "reply": comparison,
-                    "recommendations": [],
-                    "end_of_conversation": False
-                }
+                    return {
+                        "reply": comparison,
+                        "recommendations": [],
+                        "end_of_conversation": False
+                    }
+
+            return {
+                "reply": (
+                    "Please provide two valid SHL "
+                    "assessments to compare."
+                ),
+                "recommendations": [],
+                "end_of_conversation": False
+            }
 
         except Exception:
 
             return {
-                "reply": "I could not compare those assessments.",
+                "reply": (
+                    "I could not compare those "
+                    "assessments."
+                ),
                 "recommendations": [],
                 "end_of_conversation": False
             }
@@ -129,19 +151,29 @@ def chat(request: ChatRequest):
         "test",
         "hiring",
         "need assessment",
-        "need test"
+        "need test",
+        "recommend assessment"
     ]
 
-    if len(latest_message.split()) <= 3 or latest_message in vague_queries:
+    if (
+        len(latest_message.split()) <= 3
+        or latest_message in vague_queries
+    ):
 
         return {
-            "reply": "Could you share more details about the role, seniority level, and skills you want to assess?",
+            "reply": (
+                "Could you share more details such as "
+                "the role, seniority level, technical "
+                "skills, and whether you need "
+                "technical, cognitive, or personality "
+                "assessments?"
+            ),
             "recommendations": [],
             "end_of_conversation": False
         }
 
     # ==================================================
-    # RECOMMENDATIONS
+    # RECOMMENDATION SEARCH
     # ==================================================
 
     results = search_assessments(conversation_context)
@@ -157,17 +189,61 @@ def chat(request: ChatRequest):
         })
 
     # ==================================================
+    # REFINEMENT DETECTION
+    # ==================================================
+
+    refinement_keywords = [
+        "add",
+        "also",
+        "include",
+        "plus",
+        "need"
+    ]
+
+    is_refinement = False
+
+    for word in refinement_keywords:
+
+        if word in latest_message:
+
+            is_refinement = True
+
+    # ==================================================
     # RESPONSE TEXT
     # ==================================================
 
-    reply_text = "Here are recommended SHL assessments."
-
-    if "add" in latest_message:
+    if is_refinement:
 
         reply_text = (
             "I've updated the recommendations "
             "based on your additional requirements."
         )
+
+    else:
+
+        reply_text = (
+            "Here are recommended SHL assessments."
+        )
+
+    # ==================================================
+    # CONVERSATION END DETECTION
+    # ==================================================
+
+    done_keywords = [
+        "thanks",
+        "thank you",
+        "done",
+        "looks good",
+        "perfect"
+    ]
+
+    conversation_done = False
+
+    for word in done_keywords:
+
+        if word in latest_message:
+
+            conversation_done = True
 
     # ==================================================
     # FINAL RESPONSE
@@ -176,8 +252,10 @@ def chat(request: ChatRequest):
     return {
         "reply": reply_text,
         "recommendations": recommendations,
-        "end_of_conversation": True
+        "end_of_conversation": conversation_done
     }
+
+
 # ==================================================
 # RAILWAY / DEPLOYMENT STARTUP
 # ==================================================
