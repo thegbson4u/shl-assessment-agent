@@ -5,17 +5,12 @@ import numpy as np
 
 from sentence_transformers import SentenceTransformer
 
-# ==================================================
-# GLOBAL VARIABLES
-# ==================================================
-
 model = None
 index = None
 data = None
 
-# ==================================================
-# LOAD RESOURCES ONLY WHEN NEEDED
-# ==================================================
+
+# LOAD RESOURCES 
 
 def load_resources():
 
@@ -34,9 +29,9 @@ def load_resources():
         device="cpu"
     )
 
-    # ==================================================
-    # LOAD JSON DATA
-    # ==================================================
+   
+    # LOAD  DATA
+    
 
     with open(
         "data/assessments.json",
@@ -46,7 +41,7 @@ def load_resources():
 
         content = f.read()
 
-    # Clean invalid control characters
+  
     content = re.sub(
         r'[\x00-\x1F\x7F]',
         '',
@@ -55,9 +50,9 @@ def load_resources():
 
     data = json.loads(content)
 
-    # ==================================================
-    # CREATE SEARCHABLE DOCUMENTS
-    # ==================================================
+  
+    # SEARCHABLE
+  
 
     documents = []
 
@@ -88,10 +83,9 @@ def load_resources():
 
         documents.append(text)
 
-    # ==================================================
-    # CREATE EMBEDDINGS
-    # ==================================================
-
+   
+    #  EMBEDDINGS
+   
     print("Creating embeddings...")
 
     embeddings = model.encode(
@@ -103,9 +97,9 @@ def load_resources():
         embeddings
     ).astype("float32")
 
-    # ==================================================
-    # CREATE FAISS INDEX
-    # ==================================================
+   
+    # fAISS INDEX
+   
 
     dimension = embeddings.shape[1]
 
@@ -115,9 +109,9 @@ def load_resources():
 
     print("FAISS index ready!")
 
-# ==================================================
-# SEARCH FUNCTION
-# ==================================================
+
+# SEARCH 
+
 
 def search_assessments(query, top_k=5):
 
@@ -125,9 +119,9 @@ def search_assessments(query, top_k=5):
 
     query_lower = query.lower()
 
-    # ==================================================
-    # QUERY EMBEDDING
-    # ==================================================
+   
+    # QUERY
+   
 
     query_embedding = model.encode(
         [query]
@@ -137,9 +131,9 @@ def search_assessments(query, top_k=5):
         query_embedding
     ).astype("float32")
 
-    # ==================================================
-    # VECTOR SEARCH
-    # ==================================================
+  
+    # VECTOR 
+    
 
     distances, indices = index.search(
         query_embedding,
@@ -148,25 +142,24 @@ def search_assessments(query, top_k=5):
 
     scored_results = []
 
-    # ==================================================
-    # HYBRID RANKING
-    # ==================================================
-
+   
+    #  RANKING
+  
     for rank, idx in enumerate(indices[0]):
 
         assessment = data[idx]
 
         score = 0
 
-        # -----------------------------
-        # Semantic Score
-        # -----------------------------
+      
+        # Semantic 
+       
 
         score += (top_k * 5 - rank)
 
-        # -----------------------------
-        # Searchable Text
-        # -----------------------------
+        
+        # Searchable 
+        
 
         searchable_text = f"""
         {assessment.get('name', '')}
@@ -179,9 +172,9 @@ def search_assessments(query, top_k=5):
 
         query_words = query_lower.split()
 
-        # -----------------------------
-        # Keyword Matching
-        # -----------------------------
+       
+        # Keyword 
+        
 
         for word in query_words:
 
@@ -192,9 +185,9 @@ def search_assessments(query, top_k=5):
 
                 score += 4
 
-        # -----------------------------
-        # Technical Skill Boosting
-        # -----------------------------
+       
+        # Technical Skill
+        
 
         technical_keywords = [
             "java",
@@ -218,10 +211,9 @@ def search_assessments(query, top_k=5):
 
                 score += 8
 
-        # -----------------------------
-        # Personality / Behavioral
-        # -----------------------------
-
+       
+        # Personality 
+       
         personality_keywords = [
             "communication",
             "personality",
@@ -241,9 +233,9 @@ def search_assessments(query, top_k=5):
 
                     score += 8
 
-        # -----------------------------
-        # Remote Work Boost
-        # -----------------------------
+       
+        # Remote Work
+       
 
         if "remote" in query_lower:
 
@@ -258,18 +250,18 @@ def search_assessments(query, top_k=5):
             (score, assessment)
         )
 
-    # ==================================================
-    # SORT RESULTS
-    # ==================================================
+  
+    #  RESULTS
+    
 
     scored_results.sort(
         reverse=True,
         key=lambda x: x[0]
     )
 
-    # ==================================================
-    # FINAL RESULTS
-    # ==================================================
+    
+    # FINAL 
+   
 
     final_results = []
 
@@ -298,9 +290,7 @@ def search_assessments(query, top_k=5):
 
     return final_results
 
-# ==================================================
-# COMPARISON LOOKUP
-# ==================================================
+
 
 def get_assessment_by_name(name):
 
