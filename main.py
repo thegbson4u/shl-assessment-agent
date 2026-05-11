@@ -10,9 +10,9 @@ from retriever import (
 app = FastAPI()
 
 
-# ==================================================
-# REQUEST MODELS
-# ==================================================
+
+
+
 
 class Message(BaseModel):
     role: str
@@ -23,9 +23,9 @@ class ChatRequest(BaseModel):
     messages: List[Message]
 
 
-# ==================================================
+
 # HEALTH ENDPOINT
-# ==================================================
+
 
 @app.get("/health")
 def health():
@@ -35,18 +35,18 @@ def health():
     }
 
 
-# ==================================================
+
 # CHAT ENDPOINT
-# ==================================================
+
 
 @app.post("/chat")
 def chat(request: ChatRequest):
 
     latest_message = request.messages[-1].content.lower().strip()
 
-    # ==================================================
-    # BUILD CONVERSATION CONTEXT
-    # ==================================================
+   
+    # CONVERSATION 
+    
 
     conversation_context = ""
 
@@ -56,9 +56,9 @@ def chat(request: ChatRequest):
 
             conversation_context += " " + msg.content.lower()
 
-    # ==================================================
-    # OFF-TOPIC REFUSAL
-    # ==================================================
+    
+    #  REFUSAL
+   
 
     off_topic_keywords = [
         "legal",
@@ -83,9 +83,9 @@ def chat(request: ChatRequest):
                 "end_of_conversation": False
             }
 
-    # ==================================================
-    # ASSESSMENT COMPARISON
-    # ==================================================
+ 
+    #  COMPARISON
+   
 
     if "difference between" in latest_message:
 
@@ -142,9 +142,9 @@ def chat(request: ChatRequest):
                 "end_of_conversation": False
             }
 
-    # ==================================================
-    # VAGUE QUERY DETECTION
-    # ==================================================
+    
+    # VAGUE QUERY
+   
 
     vague_queries = [
         "assessment",
@@ -172,9 +172,9 @@ def chat(request: ChatRequest):
             "end_of_conversation": False
         }
 
-    # ==================================================
-    # RECOMMENDATION SEARCH
-    # ==================================================
+    
+    #  SEARCH
+   
 
     results = search_assessments(conversation_context)
 
@@ -188,9 +188,9 @@ def chat(request: ChatRequest):
             "test_type": "Assessment"
         })
 
-    # ==================================================
-    # REFINEMENT DETECTION
-    # ==================================================
+    
+    # REFINEMENT
+   
 
     refinement_keywords = [
         "add",
@@ -208,9 +208,9 @@ def chat(request: ChatRequest):
 
             is_refinement = True
 
-    # ==================================================
-    # RESPONSE TEXT
-    # ==================================================
+    
+    # RESPONSE 
+   
 
     if is_refinement:
 
@@ -225,9 +225,9 @@ def chat(request: ChatRequest):
             "Here are recommended SHL assessments."
         )
 
-    # ==================================================
-    # CONVERSATION END DETECTION
-    # ==================================================
+   
+    #  END 
+   
 
     done_keywords = [
         "thanks",
@@ -248,9 +248,9 @@ def chat(request: ChatRequest):
          if len(latest_words) <= 5:
 
              conversation_done = True
-    # ==================================================
-    # FINAL RESPONSE
-    # ==================================================
+   
+    # RESPONSE
+    
 
     return {
         "reply": reply_text,
@@ -259,9 +259,9 @@ def chat(request: ChatRequest):
     }
 
 
-# ==================================================
-# RAILWAY / DEPLOYMENT STARTUP
-# ==================================================
+
+# DEPLOYMENT
+
 
 if __name__ == "__main__":
 
