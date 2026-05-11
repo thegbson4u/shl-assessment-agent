@@ -239,12 +239,15 @@ def chat(request: ChatRequest):
 
     conversation_done = False
 
-    for word in done_keywords:
+    latest_words = latest_message.split()
 
-        if word in latest_message:
+    for phrase in done_keywords:
 
-            conversation_done = True
+     if phrase in latest_message:
 
+         if len(latest_words) <= 5:
+
+             conversation_done = True
     # ==================================================
     # FINAL RESPONSE
     # ==================================================
