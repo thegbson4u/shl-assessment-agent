@@ -178,3 +178,17 @@ def chat(request: ChatRequest):
         "recommendations": recommendations,
         "end_of_conversation": True
     }
+# ==================================================
+# RAILWAY / DEPLOYMENT STARTUP
+# ==================================================
+
+if __name__ == "__main__":
+
+    import os
+    import uvicorn
+
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 8000))
+    )
