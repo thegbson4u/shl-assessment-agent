@@ -9,7 +9,10 @@ from sentence_transformers import SentenceTransformer
 
 print("Loading embedding model...")
 
-model = SentenceTransformer('all-MiniLM-L6-v2')
+model =  SentenceTransformer(
+    'all-MiniLM-L6-v2',
+    device='cpu'
+)
 
 # ---------- LOAD JSON ----------
 
