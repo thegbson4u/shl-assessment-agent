@@ -34,28 +34,38 @@ def load_resources():
         device="cpu"
     )
 
-    # -----------------------------
-    # LOAD JSON
-    # -----------------------------
+    # ==================================================
+    # LOAD JSON DATA
+    # ==================================================
 
-    with open("data/assessments.json", "r", encoding="utf-8") as f:
+    with open(
+        "data/assessments.json",
+        "r",
+        encoding="utf-8"
+    ) as f:
 
         content = f.read()
 
-    content = re.sub(r'[\x00-\x1F\x7F]', '', content)
+    # Clean invalid control characters
+    content = re.sub(
+        r'[\x00-\x1F\x7F]',
+        '',
+        content
+    )
 
     data = json.loads(content)
 
-    # -----------------------------
-    # CREATE DOCUMENTS
-    # -----------------------------
+    # ==================================================
+    # CREATE SEARCHABLE DOCUMENTS
+    # ==================================================
 
     documents = []
 
     for item in data:
 
         text = f"""
-        Assessment Name: {item.get('name', '')}
+        Assessment Name:
+        {item.get('name', '')}
 
         Description:
         {item.get('description', '')}
@@ -65,23 +75,37 @@ def load_resources():
 
         Categories:
         {' '.join(item.get('keys', []))}
+
+        Languages:
+        {' '.join(item.get('languages', []))}
+
+        Remote:
+        {item.get('remote', '')}
+
+        Adaptive:
+        {item.get('adaptive', '')}
         """
 
         documents.append(text)
 
-    # -----------------------------
+    # ==================================================
     # CREATE EMBEDDINGS
-    # -----------------------------
+    # ==================================================
 
     print("Creating embeddings...")
 
-    embeddings = model.encode(documents)
+    embeddings = model.encode(
+        documents,
+        show_progress_bar=False
+    )
 
-    embeddings = np.array(embeddings).astype("float32")
+    embeddings = np.array(
+        embeddings
+    ).astype("float32")
 
-    # -----------------------------
+    # ==================================================
     # CREATE FAISS INDEX
-    # -----------------------------
+    # ==================================================
 
     dimension = embeddings.shape[1]
 
@@ -89,7 +113,7 @@ def load_resources():
 
     index.add(embeddings)
 
-    print("FAISS ready!")
+    print("FAISS index ready!")
 
 # ==================================================
 # SEARCH FUNCTION
@@ -101,13 +125,32 @@ def search_assessments(query, top_k=5):
 
     query_lower = query.lower()
 
-    query_embedding = model.encode([query])
+    # ==================================================
+    # QUERY EMBEDDING
+    # ==================================================
 
-    query_embedding = np.array(query_embedding).astype("float32")
+    query_embedding = model.encode(
+        [query]
+    )
 
-    distances, indices = index.search(query_embedding, top_k * 3)
+    query_embedding = np.array(
+        query_embedding
+    ).astype("float32")
+
+    # ==================================================
+    # VECTOR SEARCH
+    # ==================================================
+
+    distances, indices = index.search(
+        query_embedding,
+        top_k * 5
+    )
 
     scored_results = []
+
+    # ==================================================
+    # HYBRID RANKING
+    # ==================================================
 
     for rank, idx in enumerate(indices[0]):
 
@@ -115,26 +158,118 @@ def search_assessments(query, top_k=5):
 
         score = 0
 
-        score += (top_k * 3 - rank)
+        # -----------------------------
+        # Semantic Score
+        # -----------------------------
+
+        score += (top_k * 5 - rank)
+
+        # -----------------------------
+        # Searchable Text
+        # -----------------------------
 
         searchable_text = f"""
         {assessment.get('name', '')}
         {assessment.get('description', '')}
         {' '.join(assessment.get('keys', []))}
         {' '.join(assessment.get('job_levels', []))}
+        {' '.join(assessment.get('languages', []))}
+        {assessment.get('remote', '')}
         """.lower()
 
         query_words = query_lower.split()
 
+        # -----------------------------
+        # Keyword Matching
+        # -----------------------------
+
         for word in query_words:
+
+            if len(word) <= 2:
+                continue
 
             if word in searchable_text:
 
-                score += 3
+                score += 4
 
-        scored_results.append((score, assessment))
+        # -----------------------------
+        # Technical Skill Boosting
+        # -----------------------------
 
-    scored_results.sort(reverse=True, key=lambda x: x[0])
+        technical_keywords = [
+            "java",
+            "python",
+            "developer",
+            "backend",
+            "frontend",
+            "software",
+            "coding",
+            "cloud",
+            "sql",
+            "api"
+        ]
+
+        for keyword in technical_keywords:
+
+            if (
+                keyword in query_lower
+                and keyword in searchable_text
+            ):
+
+                score += 8
+
+        # -----------------------------
+        # Personality / Behavioral
+        # -----------------------------
+
+        personality_keywords = [
+            "communication",
+            "personality",
+            "behavior",
+            "leadership",
+            "teamwork"
+        ]
+
+        for keyword in personality_keywords:
+
+            if keyword in query_lower:
+
+                if (
+                    "personality" in searchable_text
+                    or "competencies" in searchable_text
+                ):
+
+                    score += 8
+
+        # -----------------------------
+        # Remote Work Boost
+        # -----------------------------
+
+        if "remote" in query_lower:
+
+            if "yes" in assessment.get(
+                "remote",
+                ""
+            ).lower():
+
+                score += 5
+
+        scored_results.append(
+            (score, assessment)
+        )
+
+    # ==================================================
+    # SORT RESULTS
+    # ==================================================
+
+    scored_results.sort(
+        reverse=True,
+        key=lambda x: x[0]
+    )
+
+    # ==================================================
+    # FINAL RESULTS
+    # ==================================================
 
     final_results = []
 
@@ -149,7 +284,10 @@ def search_assessments(query, top_k=5):
             final_results.append({
                 "name": assessment.get("name"),
                 "url": assessment.get("link"),
-                "description": assessment.get("description")
+                "description": assessment.get(
+                    "description",
+                    ""
+                )
             })
 
             added_names.add(name)
@@ -161,7 +299,7 @@ def search_assessments(query, top_k=5):
     return final_results
 
 # ==================================================
-# COMPARISON FUNCTION
+# COMPARISON LOOKUP
 # ==================================================
 
 def get_assessment_by_name(name):
@@ -170,7 +308,10 @@ def get_assessment_by_name(name):
 
     for item in data:
 
-        if name.lower() in item.get("name", "").lower():
+        if (
+            name.lower()
+            in item.get("name", "").lower()
+        ):
 
             return item
 
